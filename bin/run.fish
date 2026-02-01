@@ -1,6 +1,4 @@
 #!/usr/bin/env fish
+# Runs the sample slim application.
 
-while true
-    echo "Running..."
-    sleep 1
-end
+PYTHONPATH=./src/ python3 -m sample_slim_application
