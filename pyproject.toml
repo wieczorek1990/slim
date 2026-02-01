@@ -1,0 +1,23 @@
+[project]
+name = "slim"
+version = "0.1.0"
+description = "Simple HTTP backend framework written in Python."
+authors = [
+    {name = "Łukasz Wieczorek",email = "luke@soiree.tech"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "colored (>=2.3.1,<3.0.0)"
+]
+
+[dependency-groups]
+dev = [
+    "black (>=26.1.0,<27.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
