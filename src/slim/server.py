@@ -2,7 +2,6 @@ import abc
 import dataclasses
 import enum
 import socket
-import typing
 
 
 class EndOfStream(Exception):
@@ -70,26 +69,48 @@ class Server:
     def __init__(
         self,
         environment: Environment,
-        index: typing.List[IndexNode],
+        index: list[IndexNode],
         hostname: str,
         port: int,
     ) -> None:
-        self.environment = environment
-        self.index = index
-        self.port = port
-        self.hostname = hostname
+        self.environment: Environment = environment
+        self.index: list[IndexNode] = index
+        self.port: int = port
+        self.hostname: str = hostname
+
+        self.socket: socket.socket | None = None
+        self.connection: socket.socket | None = None
 
         self.whoami()
 
     def whoami(self) -> None:
         print(f"Running server on {self.hostname}:{self.port}.")
 
-    @staticmethod
-    def while_loop(connection, the_socket, get) -> None:
+    def setup_connection(self) -> None:
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.socket.bind((self.hostname, self.port))
+
+        self.socket.listen()
+
+    def get(self, buffer: str = "", connection: socket.socket | None = None) -> None:
+        if connection is None:
+            return
+        message_part = connection.recv(self.RECV_BUFFER_SIZE)
+        buffer += message_part
+
+        length = len(message_part)
+        if length > self.RECV_BUFFER_SIZE:
+            raise ContinuationOfStream()
+        if length <= self.RECV_BUFFER_SIZE:
+            raise EndOfStream()
+
+    def while_loop(self) -> None:
         while True:
             try:
                 print("Waiting for connection...")
-                connection, client_address = the_socket.accept()
+                self.connection, client_address = self.socket.accept()
                 ip, port = client_address
                 print(f"Connected to {ip}:{port}.")
 
@@ -97,42 +118,20 @@ class Server:
                 while True:
                     print("Streaming...")
                     try:
-                        get()
+                        self.get()
                     except ContinuationOfStream:
                         print("Stream continues.")
             except EndOfStream:
                 print("Stream ended.")
-                if connection is not None:
-                    connection.close()
-
-    def setup_connection(self) -> socket.socket:
-        the_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        the_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        the_socket.bind((self.hostname, self.port))
-        the_socket.listen()
-
-        return the_socket
+                if self.connection is not None:
+                    self.connection.close()
 
     def run(self) -> None:
-        buffer: str = ""
-        connection: socket.socket | None = None
+        self.setup_connection()
+        self.while_loop()
 
-        def get():
-            nonlocal buffer, connection
-
-            message_part = connection.recv(self.RECV_BUFFER_SIZE)
-            length = len(message_part)
-
-            if length < self.RECV_BUFFER_SIZE:
-                raise EndOfStream()
-
-            buffer += message_part.decode("utf-8").strip()
-            raise ContinuationOfStream()
-
-        the_socket = self.setup_connection()
-        self.while_loop(connection, the_socket, get)
-
-    def process(self, request: Request) -> Response:
+    @staticmethod
+    def process(request: Request) -> Response:
         return Response(request)
 
     def send_response(self, status_code: int) -> None:
