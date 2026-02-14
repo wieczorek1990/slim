@@ -39,6 +39,16 @@ def generate_hostname() -> str:
     return "localhost"
 
 
+@fixture
+def generate_server(
+    generate_environment, generate_index, generate_hostname, generate_port
+) -> server.Server:
+    the_server = server.Server(
+        generate_environment, generate_index, generate_hostname, generate_port
+    )
+    return the_server
+
+
 class TestServer:
     def test_server_adds_route(
         self, generate_environment, generate_index, generate_hostname, generate_port
@@ -50,3 +60,6 @@ class TestServer:
         assert isinstance(generate_environment, server.Environment)
         assert len(generate_index) >= 0
         assert the_server.port == generate_port
+
+    def test_server_accepts(self):
+        pass

@@ -84,27 +84,8 @@ class Server:
     def whoami(self) -> None:
         print(f"Running server on {self.hostname}:{self.port}.")
 
-    def run(self) -> None:
-        buffer = ""
-        connection = None
-
-        def get():
-            nonlocal buffer, connection
-
-            message_part = connection.recv(self.RECV_BUFFER_SIZE)
-            length = len(message_part)
-
-            if length == 0 or length <= self.RECV_BUFFER_SIZE:
-                raise EndOfStream()
-
-            buffer += message_part.decode("utf-8").strip()
-            raise ContinuationOfStream()
-
-        the_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        the_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        the_socket.bind((self.hostname, self.port))
-        the_socket.listen()
-
+    @staticmethod
+    def while_loop(connection, the_socket, get) -> None:
         while True:
             try:
                 print("Waiting for connection...")
@@ -123,6 +104,33 @@ class Server:
                 print("Stream ended.")
                 if connection is not None:
                     connection.close()
+
+    def setup_connection(self) -> socket.socket:
+        the_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        the_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        the_socket.bind((self.hostname, self.port))
+        the_socket.listen()
+
+        return the_socket
+
+    def run(self) -> None:
+        buffer: str = ""
+        connection: socket.socket | None = None
+
+        def get():
+            nonlocal buffer, connection
+
+            message_part = connection.recv(self.RECV_BUFFER_SIZE)
+            length = len(message_part)
+
+            if length < self.RECV_BUFFER_SIZE:
+                raise EndOfStream()
+
+            buffer += message_part.decode("utf-8").strip()
+            raise ContinuationOfStream()
+
+        the_socket = self.setup_connection()
+        self.while_loop(connection, the_socket, get)
 
     def process(self, request: Request) -> Response:
         return Response(request)
